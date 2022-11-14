@@ -1,0 +1,77 @@
+
+MAINTAIN A PERSISTENT CONNECTION TO UIPATH DATA SERVICE
+=======================================================
+This technique can be used to maintain a persistent connection to UiPath data service. My personal use case is to add UiPath to serve data retrieved by a bot onto my Wagtail content management system. 
+With wagtail, a uipath cloud account, google domains, and linode.com, you can host a website that offers bots that can act on your behalf. Think of the possibilities :)!
+
+Assumptions
+
+You can follow this RPA Vanguard tutorial to get the basics on the data service API with Postman. This also shows the technique for getting your first access and refresh token.
+UiPath Data Service APIs - Part 1 | Getting Started
+https://www.youtube.com/watch?v=KmshU2qoTLg&list=PLRkGXPS5Bo2s3I0_MM_SRC6Iw7S3uShvb
+
+
+Step 1. Create a text file called accessToken.txt and place a valid access token in it
+==============================================================================
+
+Step 2. Create a text file called refreshToken.txt and place a valid refresh token in it
+================================================================================
+
+Step 3. Use the tutorial on Data Service APIs to get your first refresh and access token. Put the access token in accessToken.txt. Put the refresh token in refreshToken.txt
+================================================================================
+
+Step 4. Create a python file called uipathRefresh.py. Change homedir to a location on your host
+=======================================================================================
+import requests
+import json
+
+homedir = "/home/acgarcia21/UiPath/"
+with open(homedir + 'refreshToken.txt') as f:
+    refreshToken = f.read()
+
+with open(homedir + 'accessToken.txt') as f:
+    accessToken = f.read()
+
+url = "https://cloud.uipath.com/identity_/connect/token"
+
+payload='grant_type=refresh_token&client_id=<insert client id from your UiPath Orchestrator here>&refresh_token=' + refreshToken.strip()
+headers = {
+  'Authorization': 'Bearer '+ accessToken.strip(),
+  'Content-Type': 'application/x-www-form-urlencoded'
+}
+
+response = requests.request("POST", url, headers=headers, data=payload)
+
+print(response.text)
+
+# some JSON:
+
+# parse x:
+y = json.loads(response.text)
+
+# the result is a Python dictionary:
+print('New Access Token:' + y["access_token"])
+print('New Refresh Toen:' + y["refresh_token"])
+
+f = open(homedir+"refreshToken.txt","w")
+f.write(y["refresh_token"])
+
+f = open(homedir+"accessToken.txt","w")
+f.write(y["access_token"])
+
+Step 5. Create a simple shell script called uipathrefresh.sh 
+====================================
+python3 /home/acgarcia21/UiPath/uipathRefresh.py
+
+Step 5. Use this command to edit your scheduled jobs on linode.com or another unix web host
+===========================================
+crontab -e
+
+
+Step 6. This syntax runs the refresh script run every 30 minutes. 
+=========================================================
+# m h  dom mon dow   command
+30 * * * * /home/acgarcia21/UiPath/uipathrefresh.sh
+
+
+The access token stored in accessToken.txt is good for an hour and can be used for any UiPath data service API call. By refreshing the accessToken.txt file every 30 minutes, you get a persistent connection to UiPath data service.
